@@ -5,23 +5,17 @@ from typing import Optional, Dict, Any
 
 from sqlalchemy import Column, String, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import declarative_base
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from pydantic import ValidationError
 
+from app.database import Base
+from app.config import settings
 from app.schemas.base import UserCreate
 from app.schemas.user import UserResponse, Token
 
-Base = declarative_base()
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Move to config
-SECRET_KEY = "your-secret-key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 class User(Base):
     __tablename__ = 'users'
@@ -29,8 +23,8 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
-    email = Column(String(120), unique=True, nullable=False)
-    username = Column(String(50), unique=True, nullable=False)
+    email = Column(String(120), unique=True, nullable=False, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
@@ -54,15 +48,15 @@ class User(Base):
     def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Create a JWT access token."""
         to_encode = data.copy()
-        expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+        expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
         to_encode.update({"exp": expire})
-        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     @staticmethod
     def verify_token(token: str) -> Optional[UUID]:
         """Verify and decode a JWT token."""
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             user_id = payload.get("sub")
             return uuid.UUID(user_id) if user_id else None
         except (JWTError, ValueError):
@@ -74,7 +68,7 @@ class User(Base):
         try:
             # Validate password length first
             password = user_data.get('password', '')
-            if len(password) < 6:  # Strictly less than 6 characters
+            if len(password) < 6:
                 raise ValueError("Password must be at least 6 characters long")
             
             # Check if email/username exists
@@ -105,7 +99,7 @@ class User(Base):
             return new_user
             
         except ValidationError as e:
-            raise ValueError(str(e)) # pragma: no cover
+            raise ValueError(str(e))
         except ValueError as e:
             raise e
 
@@ -117,7 +111,7 @@ class User(Base):
         ).first()
 
         if not user or not user.verify_password(password):
-            return None # pragma: no cover
+            return None
 
         user.last_login = datetime.utcnow()
         db.commit()
