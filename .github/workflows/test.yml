@@ -64,14 +64,14 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
+          username: maddierose717
           password: ${{ secrets.DOCKER_PASSWORD }}
       
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/fastapi-user-app
+          images: maddierose717/fastapi-user-app
           tags: |
             type=ref,event=branch
             type=sha
@@ -84,5 +84,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/fastapi-user-app:latest
+          cache-from: type=registry,ref=maddierose717/fastapi-user-app:latest
           cache-to: type=inline
